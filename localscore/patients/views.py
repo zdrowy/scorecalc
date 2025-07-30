@@ -33,8 +33,8 @@ class PatientListView(ListView):
             Prefetch('score2_results', 
                     queryset=Score2Result.objects.order_by('-created_at')),
         ).annotate(
-            visits_count=Count('visits'),
-            score2_count=Count('score2_results'),
+            visits_count=Count('visits', distinct=True),
+            score2_count=Count('score2_results', distinct=True),
             latest_score=Max('score2_results__score_value')
         )
         
@@ -78,14 +78,36 @@ class PatientListView(ListView):
             today = date.today()
             end_date = today - relativedelta(years=70)
             queryset = queryset.filter(date_of_birth__lte=end_date)
-        
+                
+                
+                # Search functionality
         # Search functionality
         search_query = self.request.GET.get('search')
         if search_query:
-            queryset = queryset.filter(
-                Q(pesel__icontains=search_query) |
-                Q(full_name__icontains=search_query)
-            )
+            search_parts = search_query.strip().split()
+            
+            search_q = Q()
+            
+            if len(search_parts) >= 2:
+                part1, part2 = search_parts[0], search_parts[1]
+                
+                # Szukaj gdzie pierwsza część to początek pierwszego słowa, druga to początek drugiego słowa
+                search_q |= Q(full_name__iregex=rf'^{part1}.*\s+{part2}')
+                # Lub odwrotnie (nazwisko imię)
+                search_q |= Q(full_name__iregex=rf'^{part2}.*\s+{part1}')
+                
+                # Standardowe wyszukiwanie jako fallback
+                search_q |= Q(full_name__icontains=search_query)
+                search_q |= Q(pesel__icontains=search_query)
+            else:
+                # Pojedynczy termin
+                search_term = search_parts[0] if search_parts else search_query
+                if len(search_term) >= 2:
+                    search_q |= Q(pesel__icontains=search_term)
+                    search_q |= Q(full_name__icontains=search_term)
+            
+            if search_q:
+                queryset = queryset.filter(search_q)
         
         # Filter by risk level instead of diabetes
         risk_filter = self.request.GET.get('risk_level')
@@ -170,7 +192,7 @@ class PatientDetailView(DetailView):
     def get_object(self):
         return get_object_or_404(
             Patient.objects.prefetch_related(
-                'visits__diagnoses',
+                'visits',
                 'chronic_diagnoses',
                 Prefetch(
                     'score2_results',
@@ -336,8 +358,8 @@ class PatientDetailView(DetailView):
         for result in patient.score2_results.all():
             visit_id = result.visit.id
             score_results[visit_id] = result
-        
-        # Prepare visit data with score results
+            
+            # Prepare visit data with score results
         visit_data = []
         for visit in visits:
             score_result = score_results.get(visit.id)
@@ -347,6 +369,7 @@ class PatientDetailView(DetailView):
                 'has_score': score_result is not None,
                 'age': patient.calculate_age(visit.visit_date),
             })
+            
         
         # Get smoking status
         smoking_status, smoking_info = patient.get_smoking_status()

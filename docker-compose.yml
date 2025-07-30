@@ -9,19 +9,19 @@ services:
       - "5432:5432"
 
   web:
-    build: ./localscore              # ← tu tylko katalog z Dockerfile
-    command: >                       # ← POLECENIE startowe idzie do `command:`
+    build: ./localscore              
+    command: >                       
       bash -c "
         python manage.py migrate &&
         python manage.py runserver 0.0.0.0:8000
       "
     volumes:
-      - ./localscore:/app            # kod z hosta → /app w kontenerze
+      - ./localscore:/app            
     env_file: .env
     depends_on:
       - db
     ports:
-      - "8000:8000"
+      - "8080:8000"
 
 volumes:
   pgdata:

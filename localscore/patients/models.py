@@ -89,7 +89,7 @@ class Patient(models.Model):
         return None
     
     def get_smoking_status(self):
-        """Determine smoking status - updated to use model field"""
+        """Determine smoking status based on diagnoses with priority over user setting"""
         # Check diagnoses first
         all_diagnoses = set()
         chronic = self.chronic_diagnoses.values_list('diagnosis_code', flat=True)
@@ -99,13 +99,22 @@ class Patient(models.Model):
         ).values_list('diagnosis_code', flat=True)
         all_diagnoses.update(visit_dx)
         
+        # Priority 1: Smoker diagnosis (F17.2 - zaburzenia z powodu nikotyny)
         if 'F17.2' in all_diagnoses:
-            return 'smoker', 'diagnosis_F17.2'
-        elif 'Z87.7' in all_diagnoses or 'Z58.7' in all_diagnoses:
-            return 'non_smoker', f'diagnosis_{list(all_diagnoses)[0]}'
-        else:
-            return self.smoking_status, 'patient_setting'
+            return 'smoker', 'F17.2'
         
+        # Priority 2: Non-smoker diagnoses
+        if 'Z87.7' in all_diagnoses:
+            return 'non_smoker', 'Z87.7'  # Wywiad osobniczy dotyczący palenia tytoniu
+        elif 'Z58.7' in all_diagnoses:
+            return 'non_smoker', 'Z58.7'  # Narażenie na dym tytoniowy
+        
+        # Priority 3: Ex-smoker diagnoses (if we want to add them in the future)
+        # elif 'Z87.891' in all_diagnoses:  # Personal history of nicotine dependence
+        #     return 'ex_smoker', 'diagnosis_Z87.891'
+        
+        # Priority 4: User setting from model field
+        return self.smoking_status, 'patient_setting'   
 
 
 

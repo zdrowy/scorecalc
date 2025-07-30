@@ -57,15 +57,12 @@
                         </svg>
                         Import danych
                     </a>
-                   <form method="post" action="{% url 'score2:calculate_all' %}" class="inline">
-    {% csrf_token %}
-    <button type="submit" class="btn-primary" onclick="return confirm('Obliczyć SCORE2 dla wszystkich pacjentów?')">
-        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16a2 2 0 002 2z"></path>
-        </svg>
-        Oblicz SCORE2 dla wszystkich
-    </button>
-</form>
+                   <button type="button" onclick="showCalculateAllModal()" class="btn-primary" id="calculate-all-btn">
+    <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16a2 2 0 002 2z"></path>
+    </svg>
+    Oblicz SCORE2 dla wszystkich
+</button>
                 </div>
             </div>
         </div>
@@ -407,4 +404,318 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Modal for Calculate All SCORE2 -->
+<div id="calculate-all-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modal-title">
+                    Oblicz SCORE2 dla wszystkich pacjentów
+                </h3>
+                <button type="button" onclick="hideCalculateAllModal()" class="text-gray-400 hover:text-gray-600" id="close-modal-btn">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Initial confirmation -->
+            <div id="confirmation-step">
+                <div class="mb-4">
+                    <div class="flex items-center p-4 bg-blue-50 rounded-lg">
+                        <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h4 class="font-medium text-blue-900">Co zostanie obliczone?</h4>
+                            <p class="text-sm text-blue-700 mt-1">
+                                System obliczy SCORE2 dla wszystkich kwalifikujących się pacjentów (40-89 lat) 
+                                z wizytami, którzy mają wystarczające dane do obliczeń.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600">{{ eligible_patients }}</div>
+                        <div class="text-sm text-gray-500">Kwalifikujących się pacjentów</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">{{ patients_with_visits }}</div>
+                        <div class="text-sm text-gray-500">Z wizytami</div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button" onclick="startCalculateAll()" class="flex-1 btn-primary">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Rozpocznij obliczenia
+                    </button>
+                    <button type="button" onclick="hideCalculateAllModal()" class="flex-1 btn-secondary">
+                        Anuluj
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress step -->
+            <div id="progress-step" class="hidden">
+                <div class="mb-6">
+                    <!-- Overall progress -->
+                    <div class="mb-4">
+                        <div class="flex justify-between text-sm font-medium text-gray-900 mb-1">
+                            <span>Postęp obliczeń</span>
+                            <span id="progress-percentage">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%" id="progress-bar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Current status -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="text-sm text-gray-600" id="current-status">
+                            Przygotowywanie obliczeń...
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-green-600" id="successful-count">0</div>
+                            <div class="text-xs text-gray-500">Udane</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-red-600" id="failed-count">0</div>
+                            <div class="text-xs text-gray-500">Błędy</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-gray-600" id="excluded-count">0</div>
+                            <div class="text-xs text-gray-500">Wykluczone</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button" onclick="cancelCalculation()" class="flex-1 btn-secondary" id="cancel-btn">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Anuluj obliczenia
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results step -->
+            <div id="results-step" class="hidden">
+                <div class="text-center mb-6">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Obliczenia zakończone!</h3>
+                </div>
+
+                <!-- Final statistics -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" id="final-successful">0</div>
+                            <div class="text-sm text-gray-500">Udanych obliczeń</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="total-processed">0</div>
+                            <div class="text-sm text-gray-500">Przetworzonych pacjentów</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="text-sm text-gray-600" id="final-summary">
+                            <!-- Summary will be filled by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button" onclick="refreshPage()" class="flex-1 btn-primary">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Odśwież listę
+                    </button>
+                    <button type="button" onclick="hideCalculateAllModal()" class="flex-1 btn-secondary">
+                        Zamknij
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let calculationInProgress = false;
+let calculationCancelled = false;
+
+function showCalculateAllModal() {
+    document.getElementById('calculate-all-modal').classList.remove('hidden');
+    // Reset modal state
+    document.getElementById('confirmation-step').classList.remove('hidden');
+    document.getElementById('progress-step').classList.add('hidden');
+    document.getElementById('results-step').classList.add('hidden');
+    calculationCancelled = false;
+}
+
+function hideCalculateAllModal() {
+    if (calculationInProgress && !confirm('Czy na pewno chcesz anulować obliczenia?')) {
+        return;
+    }
+    document.getElementById('calculate-all-modal').classList.add('hidden');
+    calculationCancelled = true;
+    calculationInProgress = false;
+}
+
+function startCalculateAll() {
+    // Show progress step
+    document.getElementById('confirmation-step').classList.add('hidden');
+    document.getElementById('progress-step').classList.remove('hidden');
+    
+    calculationInProgress = true;
+    calculationCancelled = false;
+    
+    // Start the calculation
+    fetch('{% url "score2:calculate_all" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        calculationInProgress = false;
+        
+        if (calculationCancelled) {
+            return;
+        }
+        
+        if (data.success) {
+            showResults(data.results);
+        } else {
+            showError(data.error || 'Wystąpił błąd podczas obliczeń');
+        }
+    })
+    .catch(error => {
+        calculationInProgress = false;
+        console.error('Error:', error);
+        if (!calculationCancelled) {
+            showError('Wystąpił błąd połączenia');
+        }
+    });
+    
+    // Simulate progress (since we can't get real-time progress from Django easily)
+    simulateProgress();
+}
+
+function simulateProgress() {
+    let progress = 0;
+    const interval = setInterval(() => {
+        if (calculationCancelled || !calculationInProgress) {
+            clearInterval(interval);
+            return;
+        }
+        
+        progress += Math.random() * 10;
+        if (progress > 95) {
+            progress = 95;
+        }
+        
+        updateProgress(progress);
+        
+        // Update status text
+        const statusTexts = [
+            'Pobieranie listy pacjentów...',
+            'Sprawdzanie kwalifikacji...',
+            'Obliczanie SCORE2...',
+            'Obliczanie SCORE2-Diabetes...',
+            'Obliczanie SCORE2-OP...',
+            'Zapisywanie wyników...',
+            'Finalizowanie...'
+        ];
+        
+        const statusIndex = Math.floor((progress / 100) * statusTexts.length);
+        const currentStatus = statusTexts[Math.min(statusIndex, statusTexts.length - 1)];
+        document.getElementById('current-status').textContent = currentStatus;
+        
+    }, 800);
+}
+
+function updateProgress(percentage) {
+    document.getElementById('progress-bar').style.width = `${percentage}%`;
+    document.getElementById('progress-percentage').textContent = `${Math.round(percentage)}%`;
+    
+    // Update simulated counters
+    const total = {{ patients_with_visits }};
+    const processed = Math.floor((percentage / 100) * total);
+    const successful = Math.floor(processed * 0.8); // Assume 80% success rate
+    const failed = Math.floor(processed * 0.15);
+    const excluded = processed - successful - failed;
+    
+    document.getElementById('successful-count').textContent = successful;
+    document.getElementById('failed-count').textContent = failed;
+    document.getElementById('excluded-count').textContent = excluded;
+}
+
+function showResults(results) {
+    // Hide progress, show results
+    document.getElementById('progress-step').classList.add('hidden');
+    document.getElementById('results-step').classList.remove('hidden');
+    
+    // Update progress to 100%
+    updateProgress(100);
+    
+    // Update final statistics
+    document.getElementById('final-successful').textContent = results.successful_calculations;
+    document.getElementById('total-processed').textContent = results.total_processed;
+    
+    // Create summary
+    const summary = `
+        <strong>Szczegółowe wyniki:</strong><br>
+        • Udanych obliczeń: ${results.successful_calculations}<br>
+        • Nieudanych obliczeń: ${results.failed_calculations}<br>
+        • Wykluczonych pacjentów: ${results.excluded_patients}<br>
+        • Łącznie przetworzonych: ${results.total_processed}
+    `;
+    document.getElementById('final-summary').innerHTML = summary;
+}
+
+function showError(errorMessage) {
+    document.getElementById('progress-step').classList.add('hidden');
+    document.getElementById('results-step').classList.remove('hidden');
+    
+    // Show error state
+    document.querySelector('#results-step h3').textContent = 'Wystąpił błąd';
+    document.querySelector('#results-step .bg-green-100').className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4';
+    document.querySelector('#results-step .text-green-600').className = 'h-6 w-6 text-red-600';
+    document.querySelector('#results-step .text-green-600').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+    
+    document.getElementById('final-summary').innerHTML = `<span class="text-red-600">${errorMessage}</span>`;
+}
+
+function cancelCalculation() {
+    if (confirm('Czy na pewno chcesz anulować obliczenia?')) {
+        calculationCancelled = true;
+        calculationInProgress = false;
+        hideCalculateAllModal();
+    }
+}
+
+function refreshPage() {
+    window.location.reload();
+}
+</script>
 {% endblock %}

@@ -54,7 +54,9 @@ class CalculateScore2View(View):
         # Remove existing result for this visit
         Score2Result.objects.filter(patient=patient, visit=visit).delete()
         
-        age = patient.calculate_age(visit.visit_date)
+        # Use current age for qualification, but visit age for calculation
+        current_age = patient.calculate_age()
+        age_at_visit = patient.calculate_age(visit.visit_date)
         has_diabetes = patient.has_diabetes()
         smoking_status, smoking_info = patient.get_smoking_status()
         smoker = smoking_status == 'smoker'
@@ -66,7 +68,7 @@ class CalculateScore2View(View):
         result_data = {
             'patient': patient,
             'visit': visit,
-            'age_at_calculation': age,
+            'age_at_calculation': age_at_visit,  # Use visit age for calculation
             'systolic_pressure': visit.systolic_pressure,
             'cholesterol_total': total_chol,
             'cholesterol_hdl': hdl_chol,
@@ -90,21 +92,21 @@ class CalculateScore2View(View):
             })
             return Score2Result.objects.create(**result_data)
         
-        # Determine which score to calculate
-        if has_diabetes and 40 <= age <= 69:
+        # Use CURRENT age for qualification checks (not visit age)
+        if has_diabetes and 40 <= current_age <= 69:
             return self._calculate_score2_diabetes(result_data)
-        elif not has_diabetes and 40 <= age <= 69:
+        elif not has_diabetes and 40 <= current_age <= 69:
             return self._calculate_score2(result_data)
-        elif 70 <= age <= 89:
+        elif 70 <= current_age <= 89:
             return self._calculate_score2_op(result_data)
         else:
-            # Age exclusion
-            if age < 40:
-                exclusion_reason = f'Wiek {age} lat < 40 lat (minimum dla wszystkich skal)'
-            elif age > 89:
-                exclusion_reason = f'Wiek {age} lat > 89 lat (maksimum dla SCORE2-OP)'
+            # Age exclusion based on current age
+            if current_age < 40:
+                exclusion_reason = f'Obecny wiek {current_age} lat < 40 lat (minimum dla wszystkich skal)'
+            elif current_age > 89:
+                exclusion_reason = f'Obecny wiek {current_age} lat > 89 lat (maksimum dla SCORE2-OP)'
             else:
-                exclusion_reason = f'Wiek {age} lat poza zakresem'
+                exclusion_reason = f'Obecny wiek {current_age} lat poza zakresem'
             
             result_data.update({
                 'score_type': '',
@@ -112,7 +114,7 @@ class CalculateScore2View(View):
                 'risk_level': 'age_out_of_range',
                 'is_calculation_successful': False,
                 'missing_data_reason': exclusion_reason,
-                'calculation_notes': f'Pacjent wykluczony: {exclusion_reason}',
+                'calculation_notes': f'Pacjent wykluczony: {exclusion_reason} (wiek na dzień wizyty: {age_at_visit} lat)',
                 'data_source': 'visit'
             })
             return Score2Result.objects.create(**result_data)
@@ -538,7 +540,7 @@ class CalculateAllScore2View(View):
     
     def _calculate_scores_for_all(self):
         """Calculate scores for all eligible patients"""
-        # Get all patients with visits in score-eligible age range (40-89)
+        # Get all patients with visits in score-eligible age range (40-89) - use CURRENT age
         today = date.today()
         min_date = today - relativedelta(years=90)
         max_date = today - relativedelta(years=40)
