@@ -1,0 +1,424 @@
+{% extends 'base.html' %}
+
+{% block title %}Statystyki SCORE2 - System SCORE2{% endblock %}
+
+{% block header %}
+<div class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="py-6">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        <svg class="w-8 h-8 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Statystyki SCORE2
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Analiza wyników obliczeń ryzyka sercowo-naczyniowego
+                    </p>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <button type="button" onclick="refreshStats()" class="btn-primary" id="refresh-btn">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Odśwież statystyki
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Overview Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="card p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="ml-4">
+                <div class="text-sm font-medium text-gray-500">Wszyscy pacjenci</div>
+                <div class="text-2xl font-bold text-gray-900">{{ total_patients }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="ml-4">
+                <div class="text-sm font-medium text-gray-500">Z wizytami</div>
+                <div class="text-2xl font-bold text-gray-900">{{ patients_with_visits }}</div>
+                <div class="text-xs text-gray-500">
+                    {{ patients_with_visits|floatformat:0|div:total_patients|mul:100|floatformat:1 }}% z wszystkich
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="ml-4">
+                <div class="text-sm font-medium text-gray-500">Z SCORE2</div>
+                <div class="text-2xl font-bold text-gray-900">{{ patients_with_scores }}</div>
+                <div class="text-xs text-gray-500">
+                    {{ patients_with_scores|floatformat:0|div:patients_with_visits|mul:100|floatformat:1 }}% z wizytami
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-red-100 rounded-md flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="ml-4">
+                <div class="text-sm font-medium text-gray-500">Nieudane obliczenia</div>
+                <div class="text-2xl font-bold text-gray-900">{{ failed_calculations }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Score Types Distribution -->
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Rozkład typów SCORE2</h3>
+        </div>
+        <div class="p-6">
+            {% if score_type_stats %}
+                <div class="space-y-4">
+                    {% for score_type, stats in score_type_stats.items %}
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ score_type }}</div>
+                                <div class="text-xs text-gray-500">{{ stats.count }} pacjent{{ stats.count|pluralize:"ów" }}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold text-blue-600">{{ stats.avg_score }}%</div>
+                                <div class="text-xs text-gray-500">średnia</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Chart -->
+                <div class="mt-6">
+                    <canvas id="scoreTypesChart" width="400" height="200"></canvas>
+                </div>
+            {% else %}
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">Brak danych</h3>
+                    <p class="mt-1 text-sm text-gray-500">Nie ma jeszcze obliczonych wyników SCORE2.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Risk Levels Distribution -->
+    <div class="card">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Rozkład poziomów ryzyka</h3>
+        </div>
+        <div class="p-6">
+            {% if risk_stats %}
+                <div class="space-y-4">
+                    {% for risk_level, stats in risk_stats.items %}
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ stats.display_name }}</div>
+                                <div class="text-xs text-gray-500">{{ stats.count }} pacjent{{ stats.count|pluralize:"ów" }}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-medium">
+                                    {% if risk_level == 'low_to_moderate' %}
+                                        <span class="badge-success">{{ stats.percentage }}%</span>
+                                    {% elif risk_level == 'high' %}
+                                        <span class="badge-warning">{{ stats.percentage }}%</span>
+                                    {% elif risk_level == 'very_high' %}
+                                        <span class="badge-danger">{{ stats.percentage }}%</span>
+                                    {% else %}
+                                        <span class="badge-secondary">{{ stats.percentage }}%</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress bar -->
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="h-2 rounded-full 
+                                {% if risk_level == 'low_to_moderate' %}bg-green-600
+                                {% elif risk_level == 'high' %}bg-yellow-500
+                                {% elif risk_level == 'very_high' %}bg-red-600
+                                {% else %}bg-gray-500{% endif %}" 
+                                style="width: {{ stats.percentage }}%">
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Chart -->
+                <div class="mt-6">
+                    <canvas id="riskLevelsChart" width="400" height="200"></canvas>
+                </div>
+            {% else %}
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">Brak danych</h3>
+                    <p class="mt-1 text-sm text-gray-500">Nie ma jeszcze obliczonych poziomów ryzyka.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Statistics -->
+<div class="card mt-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Szczegółowe statystyki</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- SCORE2 Statistics -->
+            {% for score_type, stats in score_type_stats.items %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-sm font-medium text-gray-900 mb-3">{{ score_type }}</h4>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <dt class="text-gray-500">Liczba obliczeń:</dt>
+                            <dd class="text-gray-900">{{ stats.count }}</dd>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <dt class="text-gray-500">Średni wynik:</dt>
+                            <dd class="text-gray-900">{{ stats.avg_score }}%</dd>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <dt class="text-gray-500">Udział w populacji:</dt>
+                            <dd class="text-gray-900">
+                                {{ stats.count|floatformat:0|div:patients_with_scores|mul:100|floatformat:1 }}%
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            {% empty %}
+                <div class="col-span-3 text-center py-8">
+                    <p class="text-sm text-gray-500">Brak szczegółowych statystyk do wyświetlenia.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card mt-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Szybkie akcje</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="{% url 'patients:patient_list' %}" class="btn-primary text-center block">
+                <svg class="w-4 h-4 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                Lista pacjentów
+            </a>
+            
+            <a href="{% url 'patients:patient_list' %}?score_status=not_calculated" class="btn-secondary text-center block">
+                <svg class="w-4 h-4 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                Nieobliczone
+            </a>
+            
+            <a href="{% url 'patients:patient_list' %}?diabetes=yes" class="btn-secondary text-center block">
+                <svg class="w-4 h-4 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Z cukrzycą
+            </a>
+            
+            <a href="{% url 'patients:import_data' %}" class="btn-secondary text-center block">
+                <svg class="w-4 h-4 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Import danych
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+    });
+
+    function initializeCharts() {
+        // Score Types Chart
+        const scoreTypesCtx = document.getElementById('scoreTypesChart');
+        if (scoreTypesCtx) {
+            const scoreTypesData = {
+                labels: [
+                    {% for score_type, stats in score_type_stats.items %}
+                        '{{ score_type }}'{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for score_type, stats in score_type_stats.items %}
+                            {{ stats.count }}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',   // SCORE2
+                        'rgba(139, 69, 19, 0.8)',    // SCORE2-Diabetes
+                        'rgba(168, 85, 247, 0.8)'    // SCORE2-OP
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(139, 69, 19, 1)',
+                        'rgba(168, 85, 247, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            };
+
+            new Chart(scoreTypesCtx, {
+                type: 'doughnut',
+                data: scoreTypesData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Rozkład typów SCORE2'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Risk Levels Chart
+        const riskLevelsCtx = document.getElementById('riskLevelsChart');
+        if (riskLevelsCtx) {
+            const riskLevelsData = {
+                labels: [
+                    {% for risk_level, stats in risk_stats.items %}
+                        '{{ stats.display_name }}'{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for risk_level, stats in risk_stats.items %}
+                            {{ stats.count }}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: [
+                        {% for risk_level, stats in risk_stats.items %}
+                            {% if risk_level == 'low_to_moderate' %}'rgba(34, 197, 94, 0.8)'
+                            {% elif risk_level == 'high' %}'rgba(251, 191, 36, 0.8)'
+                            {% elif risk_level == 'very_high' %}'rgba(239, 68, 68, 0.8)'
+                            {% else %}'rgba(156, 163, 175, 0.8)'{% endif %}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: [
+                        {% for risk_level, stats in risk_stats.items %}
+                            {% if risk_level == 'low_to_moderate' %}'rgba(34, 197, 94, 1)'
+                            {% elif risk_level == 'high' %}'rgba(251, 191, 36, 1)'
+                            {% elif risk_level == 'very_high' %}'rgba(239, 68, 68, 1)'
+                            {% else %}'rgba(156, 163, 175, 1)'{% endif %}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderWidth: 2
+                }]
+            };
+
+            new Chart(riskLevelsCtx, {
+                type: 'pie',
+                data: riskLevelsData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Rozkład poziomów ryzyka'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function refreshStats() {
+        const btn = document.getElementById('refresh-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-4 h-4 mr-2 inline-block animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Odświeżanie...';
+        btn.disabled = true;
+
+        // Reload page after short delay
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+# 1. Install OS‑level build tools & libraries
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \         
+      gfortran \                
+      libatlas-base-dev \       
+      libpq-dev \               
+      python3-dev   \           
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 2. Copy in your dependency list
+COPY requirements.txt .
+
+# 3. Make sure pip, setuptools & wheel are up to date, then install
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r requirements.txt
+
+# 4. Copy the rest of your application
+COPY . .
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["gunicorn", "your_project.wsgi:application"]

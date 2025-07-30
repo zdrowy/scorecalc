@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+
+{% block title %}Import danych - System SCORE2{% endblock %}
+
+{% block header %}
+<div class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="py-6">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex-1 min-w-0">
+                    <nav class="flex" aria-label="Breadcrumb">
+                        <ol class="flex items-center space-x-4">
+                            <li>
+                                <div>
+                                    <a href="{% url 'patients:patient_list' %}" class="text-gray-400 hover:text-gray-500">
+                                        <svg class="flex-shrink-0 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                        </svg>
+                                        <span class="sr-only">Lista pacjentów</span>
+                                    </a>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="flex items-center">
+                                    <svg class="flex-shrink-0 h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="ml-4 text-sm font-medium text-gray-500">Import danych</span>
+                                </div>
+                            </li>
+                        </ol>
+                    </nav>
+                    <h1 class="mt-2 text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        <svg class="w-8 h-8 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Import danych pacjentów
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Importuj dane pacjentów z pliku Excel (.xlsx, .xls)
+                    </p>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <a href="{% url 'patients:patient_list' %}" class="btn-secondary">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        Powrót do listy
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Upload Form -->
+    <div class="lg:col-span-2">
+        <div class="card">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Wybierz plik do importu</h3>
+            </div>
+            <div class="p-6">
+                <form method="post" enctype="multipart/form-data" id="upload-form">
+                    {% csrf_token %}
+                    
+                    <!-- File upload area -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Plik Excel
+                        </label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors duration-200" id="drop-zone">
+                            <div class="space-y-1 text-center">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="flex text-sm text-gray-600">
+                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                        <span>Wybierz plik</span>
+                                        <input id="file-upload" name="file" type="file" class="sr-only" accept=".xlsx,.xls" required>
+                                    </label>
+                                    <p class="pl-1">lub przeciągnij i upuść</p>
+                                </div>
+                                <p class="text-xs text-gray-500">
+                                    Obsługiwane formaty: .xlsx, .xls (max 50MB)
+                                </p>
+                            </div>
+                        </div>
+                        <div id="file-info" class="mt-2 hidden">
+                            <div class="flex items-center text-sm text-gray-600">
+                                <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                                <span id="file-name"></span>
+                                <span id="file-size" class="ml-2 text-gray-400"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit buttons -->
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="clearFile()" class="btn-secondary" id="clear-btn" style="display: none;">
+                            Wyczyść
+                        </button>
+                        <button type="submit" class="btn-primary" id="submit-btn" disabled>
+                            <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <span id="submit-text">Importuj dane</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Progress bar -->
+                <div id="progress-container" class="mt-6 hidden">
+                    <div class="flex justify-between mb-1">
+                        <span class="text-sm font-medium text-blue-700">Importowanie...</span>
+                        <span class="text-sm font-medium text-blue-700" id="progress-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%" id="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="lg:col-span-1">
+        <div class="card">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Instrukcje</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-2">Format pliku Excel</h4>
+                    <p class="text-sm text-gray-600">
+                        Plik musi zawierać kolumny zgodne z formatem używanym w systemie. 
+                        Obsługiwane są pliki .xlsx i .xls.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-2">Wymagane kolumny</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• PACJENT - imię i nazwisko</li>
+                        <li>• IDENTYFIAKTOR - PESEL</li>
+                        <li>• DATA URODZENIA</li>
+                        <li>• DATA OSTATNIEJ WIZYTY</li>
+                        <li>• ŚR. CIŚNIENIE SKURCZOWE</li>
+                        <li>• CHOLESTEROL CAŁKOWITY</li>
+                        <li>• CHOLESTEROL HDL</li>
+                        <li>• HEMOGLOBINA GLIKOWANA</li>
+                        <li>• EGFR</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-2">Diagnozy</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• ROZPOZNANIE Z WIZYTY</li>
+                        <li>• ROZPOZNANIE PRZEWLEKŁE</li>
+                        <li>• DATA ROZPOZNANIA SCHORZENIA PRZEWLEKŁEGO</li>
+                    </ul>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-yellow-400 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">Uwaga</h4>
+                            <p class="text-sm text-gray-600 mt-1">
+                                Import nie nadpisuje istniejących danych pacjentów. 
+                                Aktualizowane są tylko dane kontaktowe.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent imports -->
+        <div class="card mt-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Ostatnie importy</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-3">
+                    <!-- This would be populated from database if we track imports -->
+                    <div class="text-sm text-gray-500 text-center py-4">
+                        <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Brak ostatnich importów
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('file-upload');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const submitBtn = document.getElementById('submit-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const form = document.getElementById('upload-form');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('progress-percent');
+        const submitText = document.getElementById('submit-text');
+
+        // File input change handler
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('drop', handleDrop);
+        dropZone.addEventListener('dragenter', handleDragEnter);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                displayFileInfo(file);
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-blue-400', 'bg-blue-50');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!dropZone.contains(e.relatedTarget)) {
+                dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (isValidFile(file)) {
+                    fileInput.files = files;
+                    displayFileInfo(file);
+                } else {
+                    showMessage('error', 'Nieprawidłowy typ pliku. Obsługiwane są tylko pliki .xlsx i .xls');
+                }
+            }
+        }
+
+        function isValidFile(file) {
+            const validTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel'
+            ];
+            return validTypes.includes(file.type) || 
+                   file.name.toLowerCase().endsWith('.xlsx') || 
+                   file.name.toLowerCase().endsWith('.xls');
+        }
+
+        function displayFileInfo(file) {
+            if (!isValidFile(file)) {
+                showMessage('error', 'Nieprawidłowy typ pliku. Obsługiwane są tylko pliki .xlsx i .xls');
+                return;
+            }
+
+            fileName.textContent = file.name;
+            fileSize.textContent = `(${formatFileSize(file.size)})`;
+            fileInfo.classList.remove('hidden');
+            submitBtn.disabled = false;
+            clearBtn.style.display = 'inline-flex';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        window.clearFile = function() {
+            fileInput.value = '';
+            fileInfo.classList.add('hidden');
+            submitBtn.disabled = true;
+            clearBtn.style.display = 'none';
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        };
+
+        // Form submission with progress
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!fileInput.files[0]) {
+                showMessage('error', 'Proszę wybrać plik do importu');
+                return;
+            }
+
+            const formData = new FormData(form);
+            
+            // Show progress
+            progressContainer.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitText.textContent = 'Importowanie...';
+            
+            // Simulate progress (since we can't track real upload progress easily)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                updateProgress(progress);
+            }, 500);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => {
+                clearInterval(progressInterval);
+                updateProgress(100);
+                
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error('Błąd serwera podczas importu');
+                }
+            })
+            .then(html => {
+                // Parse response to check for messages
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const messages = doc.querySelectorAll('.alert-success, .alert-error');
+                
+                if (messages.length > 0) {
+                    // Show messages from response
+                    messages.forEach(msg => {
+                        const isSuccess = msg.classList.contains('alert-success');
+                        const text = msg.querySelector('p').textContent;
+                        showMessage(isSuccess ? 'success' : 'error', text);
+                    });
+                    
+                    // If successful, redirect after delay
+                    if (doc.querySelector('.alert-success')) {
+                        setTimeout(() => {
+                            window.location.href = '{% url "patients:patient_list" %}';
+                        }, 2000);
+                    }
+                } else {
+                    showMessage('success', 'Import zakończony pomyślnie!');
+                    setTimeout(() => {
+                        window.location.href = '{% url "patients:patient_list" %}';
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                showMessage('error', `Błąd podczas importu: ${error.message}`);
+            })
+            .finally(() => {
+                // Reset form state
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitText.textContent = 'Importuj dane';
+                    updateProgress(0);
+                }, 1000);
+            });
+        });
+
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+            progressPercent.textContent = `${Math.round(percent)}%`;
+        }
+
+        function showMessage(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+            const iconPath = type === 'success' ? 
+                'M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' :
+                'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${alertClass} mb-4`;
+            messageDiv.innerHTML = `
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 ${type === 'success' ? 'text-green-400' : 'text-red-400'}" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="${iconPath}" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm">${message}</p>
+                    </div>
+                </div>
+            `;
+
+            // Insert message at the top of content
+            const content = document.querySelector('.max-w-7xl.mx-auto.px-4.sm\\:px-6.lg\\:px-8.py-6');
+            content.insertBefore(messageDiv, content.firstChild);
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.style.transition = 'opacity 0.5s';
+                messageDiv.style.opacity = '0';
+                setTimeout(() => messageDiv.remove(), 500);
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

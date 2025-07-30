@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista pacjentów - System SCORE2{% endblock %}
+
+{% block extra_head %}
+<style>
+    .risk-low_to_moderate { 
+        background-color: #d1fae5; 
+        color: #065f46; 
+        border-color: #10b981; 
+    }
+    .risk-high { 
+        background-color: #fed7aa; 
+        color: #9a3412; 
+        border-color: #f97316; 
+    }
+    .risk-very_high { 
+        background-color: #fecaca; 
+        color: #991b1b; 
+        border-color: #ef4444; 
+    }
+    .risk-not_applicable { 
+        background-color: #f3f4f6; 
+        color: #374151; 
+        border-color: #9ca3af; 
+    }
+    .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .clickable-row:hover {
+        background-color: #f9fafb;
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+<div class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="py-6">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        <svg class="w-8 h-8 inline-block mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        Lista pacjentów
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        System oceny ryzyka sercowo-naczyniowego SCORE2
+                    </p>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <a href="{% url 'patients:import_data' %}" class="btn-secondary mr-3">
+                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Import danych
+                    </a>
+                   <form method="post" action="{% url 'score2:calculate_all' %}" class="inline">
+    {% csrf_token %}
+    <button type="submit" class="btn-primary" onclick="return confirm('Obliczyć SCORE2 dla wszystkich pacjentów?')">
+        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16a2 2 0 002 2z"></path>
+        </svg>
+        Oblicz SCORE2 dla wszystkich
+    </button>
+</form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Wszyscy pacjenci</dt>
+                        <dd class="text-2xl font-bold text-gray-900">{{ total_patients }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Kwalifikowalni (40-89 lat)</dt>
+                        <dd class="text-2xl font-bold text-gray-900">{{ eligible_patients }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Z wizytami</dt>
+                        <dd class="text-2xl font-bold text-gray-900">{{ patients_with_visits }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Z obliczonym SCORE2</dt>
+                        <dd class="text-2xl font-bold text-gray-900">{{ patients_with_scores }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Risk Level Statistics -->
+{% if risk_level_stats %}
+<div class="card mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Rozkład grup ryzyka</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-3 gap-4">
+            {% for risk_level, stats in risk_level_stats.items %}
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900">{{ stats.count }}</div>
+                <div class="text-sm font-medium px-2 py-1 rounded-full risk-{{ risk_level }}">
+                    {{ stats.display_name }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="card mb-6">
+    <div class="p-6">
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Search -->
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700">Szukaj</label>
+                    <input type="text" 
+                           name="search" 
+                           id="search"
+                           value="{{ search_query }}"
+                           placeholder="PESEL lub nazwisko"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <!-- Risk Level Filter -->
+                <div>
+                    <label for="risk_level" class="block text-sm font-medium text-gray-700">Grupa ryzyka</label>
+                    <select name="risk_level" id="risk_level" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="all" {% if risk_filter == 'all' %}selected{% endif %}>Wszystkie</option>
+                        <option value="low_to_moderate" {% if risk_filter == 'low_to_moderate' %}selected{% endif %}>Niskie do umiarkowanego</option>
+                        <option value="high" {% if risk_filter == 'high' %}selected{% endif %}>Wysokie</option>
+                        <option value="very_high" {% if risk_filter == 'very_high' %}selected{% endif %}>Bardzo wysokie</option>
+                    </select>
+                </div>
+
+                <!-- Age Filter -->
+                <div>
+                    <label for="age" class="block text-sm font-medium text-gray-700">Grupa wiekowa</label>
+                    <select name="age" id="age" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="score_eligible" {% if age_filter == 'score_eligible' %}selected{% endif %}>40-89 lat (SCORE2)</option>
+                        <option value="all" {% if age_filter == 'all' %}selected{% endif %}>Wszystkie</option>
+                        <option value="40-49" {% if age_filter == '40-49' %}selected{% endif %}>40-49 lat</option>
+                        <option value="50-59" {% if age_filter == '50-59' %}selected{% endif %}>50-59 lat</option>
+                        <option value="60-69" {% if age_filter == '60-69' %}selected{% endif %}>60-69 lat</option>
+                        <option value="70+" {% if age_filter == '70+' %}selected{% endif %}>70+ lat</option>
+                    </select>
+                </div>
+
+                <!-- Score Status Filter -->
+                <div>
+                    <label for="score_status" class="block text-sm font-medium text-gray-700">Status SCORE2</label>
+                    <select name="score_status" id="score_status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="" {% if not score_filter %}selected{% endif %}>Wszystkie</option>
+                        <option value="calculated" {% if score_filter == 'calculated' %}selected{% endif %}>Obliczone</option>
+                        <option value="not_calculated" {% if score_filter == 'not_calculated' %}selected{% endif %}>Nie obliczone</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <a href="{% url 'patients:patient_list' %}" class="btn-secondary">Wyczyść</a>
+                <button type="submit" class="btn-primary">Filtruj</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Patient List -->
+<div class="card">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">
+            Pacjenci 
+            <span class="text-sm font-normal text-gray-500">({{ page_obj.paginator.count }} wyników)</span>
+        </h3>
+    </div>
+    
+    {% if patients %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pacjent</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wiek</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ostatnia wizyta</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Najnowszy SCORE2</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupa ryzyka</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wizyt</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for patient in patients %}
+                <tr class="clickable-row" onclick="window.location.href='{% url 'patients:patient_detail' patient.pk %}'">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-gray-700">
+                                        {{ patient.full_name|default:patient.pesel|slice:":2"|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">
+                                    {{ patient.full_name|default:"Brak nazwiska" }}
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    {{ patient.pesel }}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ patient.age }} lat
+                        <div class="text-xs text-gray-500">
+                            {% if patient.gender == 'M' %}M{% else %}K{% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% with latest_visit=patient.visits.first %}
+                        {% if latest_visit %}
+                            {{ latest_visit.visit_date }}
+                            <div class="text-xs text-gray-400">{{ latest_visit.quarter }}</div>
+                        {% else %}
+                            <span class="text-gray-400">Brak wizyt</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {% with latest_score=patient.score2_results.first %}
+                        {% if latest_score and latest_score.is_calculation_successful %}
+                            <div>
+                                <span class="text-lg font-bold">{{ latest_score.score_value }}%</span>
+                                <div class="text-xs text-gray-500">{{ latest_score.score_type }}</div>
+                            </div>
+                        {% elif latest_score %}
+                            <span class="text-red-600 text-xs">Błąd obliczenia</span>
+                        {% else %}
+                            <span class="text-gray-400">Nie obliczono</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% with latest_score=patient.score2_results.first %}
+                        {% if latest_score and latest_score.is_calculation_successful %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full risk-{{ latest_score.risk_level }}">
+                                {{ latest_score.risk_level_display }}
+                            </span>
+                        {% else %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                                Brak danych
+                            </span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                {{ patient.visits_count }} wizyt
+                            </span>
+                            {% if patient.score2_count > 0 %}
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                                    {{ patient.score2_count }} SCORE2
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if risk_filter %}&risk_level={{ risk_filter }}{% endif %}{% if age_filter %}&age={{ age_filter }}{% endif %}{% if score_filter %}&score_status={{ score_filter }}{% endif %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Poprzednia
+                </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if risk_filter %}&risk_level={{ risk_filter }}{% endif %}{% if age_filter %}&age={{ age_filter }}{% endif %}{% if score_filter %}&score_status={{ score_filter }}{% endif %}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Następna
+                </a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Wyniki <span class="font-medium">{{ page_obj.start_index }}</span> do <span class="font-medium">{{ page_obj.end_index }}</span> z <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if risk_filter %}&risk_level={{ risk_filter }}{% endif %}{% if age_filter %}&age={{ age_filter }}{% endif %}{% if score_filter %}&score_status={{ score_filter }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">Poprzednia</span>
+                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <span class="z-10 bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                {{ num }}
+                            </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if risk_filter %}&risk_level={{ risk_filter }}{% endif %}{% if age_filter %}&age={{ age_filter }}{% endif %}{% if score_filter %}&score_status={{ score_filter }}{% endif %}" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                {{ num }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if risk_filter %}&risk_level={{ risk_filter }}{% endif %}{% if age_filter %}&age={{ age_filter }}{% endif %}{% if score_filter %}&score_status={{ score_filter }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">Następna</span>
+                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Brak pacjentów</h3>
+        <p class="mt-1 text-sm text-gray-500">Nie znaleziono pacjentów spełniających kryteria wyszukiwania.</p>
+        <div class="mt-6">
+            <a href="{% url 'patients:patient_list' %}" class="btn-primary">
+                Wyczyść filtry
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
