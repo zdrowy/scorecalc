@@ -9,10 +9,13 @@ from datetime import date
 import numpy as np
 from typing import Optional, Tuple
 from dateutil.relativedelta import relativedelta
-
+import logging
 
 from patients.models import Patient, Visit
 from .models import Score2Result
+
+# Configure logger
+logger = logging.getLogger('score2')
 
 
 class CalculateScore2View(View):
@@ -43,6 +46,7 @@ class CalculateScore2View(View):
                 }
             })
         except Exception as e:
+            logger.error(f"ERROR;{patient.pesel};;;Unexpected error;{str(e)}")
             return JsonResponse({
                 'success': False,
                 'error': str(e)
@@ -54,12 +58,14 @@ class CalculateScore2View(View):
         # Remove existing result for this visit
         Score2Result.objects.filter(patient=patient, visit=visit).delete()
         
-        # Use current age for qualification, but visit age for calculation
-        current_age = patient.calculate_age()
+        # Use visit age for both qualification AND calculation (like original script)
         age_at_visit = patient.calculate_age(visit.visit_date)
         has_diabetes = patient.has_diabetes()
         smoking_status, smoking_info = patient.get_smoking_status()
         smoker = smoking_status == 'smoker'
+        
+        # Get systolic pressure with fallback logic
+        sbp, sbp_info = self._get_systolic_pressure(patient, visit.visit_date)
         
         # Get cholesterol values with fallback logic
         total_chol, hdl_chol, chol_info, chol_source = self._get_cholesterol_values(patient, visit.visit_date)
@@ -68,19 +74,20 @@ class CalculateScore2View(View):
         result_data = {
             'patient': patient,
             'visit': visit,
-            'age_at_calculation': age_at_visit,  # Use visit age for calculation
-            'systolic_pressure': visit.systolic_pressure,
+            'age_at_calculation': age_at_visit,
+            'systolic_pressure': sbp,
             'cholesterol_total': total_chol,
             'cholesterol_hdl': hdl_chol,
             'smoking_status': smoking_status,
             'smoking_info_source': smoking_info,
             'has_diabetes': has_diabetes,
-            'cholesterol_info': chol_info,
-            'region': 'high',  # Default region
+            'cholesterol_info': f"{chol_info}, ciśnienie: {sbp_info}",
+            'region': 'high',
         }
         
         # Check if we have systolic pressure (critical for all calculations)
-        if visit.systolic_pressure is None:
+        if sbp is None:
+            logger.warning(f"NO_CALC;{patient.pesel};{age_at_visit};;Missing systolic blood pressure;{sbp_info}")
             result_data.update({
                 'score_type': '',
                 'score_value': None,
@@ -92,21 +99,31 @@ class CalculateScore2View(View):
             })
             return Score2Result.objects.create(**result_data)
         
-        # Use CURRENT age for qualification checks (not visit age)
-        if has_diabetes and 40 <= current_age <= 69:
-            return self._calculate_score2_diabetes(result_data)
-        elif not has_diabetes and 40 <= current_age <= 69:
+        # Use visit age for qualification (same as original script)
+        if has_diabetes and age_at_visit >= 40:
+            if age_at_visit <= 69:
+                logger.info(f"QUALIFYING;{patient.pesel};{age_at_visit};SCORE2-Diabetes;;sbp from {sbp_info}")
+                return self._calculate_score2_diabetes(result_data)
+            else:  # age 70+
+                logger.info(f"QUALIFYING;{patient.pesel};{age_at_visit};SCORE2-OP;diabetic;sbp from {sbp_info}")
+                return self._calculate_score2_op(result_data)
+        elif not has_diabetes and 40 <= age_at_visit <= 69:
+            logger.info(f"QUALIFYING;{patient.pesel};{age_at_visit};SCORE2;;sbp from {sbp_info}")
             return self._calculate_score2(result_data)
-        elif 70 <= current_age <= 89:
+        elif 70 <= age_at_visit <= 89:
+            logger.info(f"QUALIFYING;{patient.pesel};{age_at_visit};SCORE2-OP;;sbp from {sbp_info}")
             return self._calculate_score2_op(result_data)
         else:
-            # Age exclusion based on current age
-            if current_age < 40:
-                exclusion_reason = f'Obecny wiek {current_age} lat < 40 lat (minimum dla wszystkich skal)'
-            elif current_age > 89:
-                exclusion_reason = f'Obecny wiek {current_age} lat > 89 lat (maksimum dla SCORE2-OP)'
+            # Age exclusion based on visit age
+            if age_at_visit < 40:
+                exclusion_reason = f'Wiek w momencie wizyty {age_at_visit} lat < 40 lat'
+                logger.warning(f"EXCLUDED;{patient.pesel};{age_at_visit};;Too young (<40);")
+            elif age_at_visit > 89:
+                exclusion_reason = f'Wiek w momencie wizyty {age_at_visit} lat > 89 lat'
+                logger.warning(f"EXCLUDED;{patient.pesel};{age_at_visit};;Too old (>89);")
             else:
-                exclusion_reason = f'Obecny wiek {current_age} lat poza zakresem'
+                exclusion_reason = f'Wiek w momencie wizyty {age_at_visit} lat poza zakresem'
+                logger.warning(f"EXCLUDED;{patient.pesel};{age_at_visit};;Age out of range;")
             
             result_data.update({
                 'score_type': '',
@@ -114,11 +131,29 @@ class CalculateScore2View(View):
                 'risk_level': 'age_out_of_range',
                 'is_calculation_successful': False,
                 'missing_data_reason': exclusion_reason,
-                'calculation_notes': f'Pacjent wykluczony: {exclusion_reason} (wiek na dzień wizyty: {age_at_visit} lat)',
+                'calculation_notes': f'Pacjent wykluczony: {exclusion_reason}',
                 'data_source': 'visit'
             })
             return Score2Result.objects.create(**result_data)
-    
+    def _get_systolic_pressure(self, patient: Patient, visit_date: date) -> Tuple[Optional[int], str]:
+        """Get systolic pressure with fallback to previous visits"""
+        # First try current visit
+        current_visit = patient.visits.filter(visit_date=visit_date).first()
+        if current_visit and current_visit.systolic_pressure:
+            return current_visit.systolic_pressure, "aktualna wizyta"
+        
+        # Look for previous visits with systolic pressure
+        previous_visits = patient.visits.filter(
+            visit_date__lt=visit_date,
+            systolic_pressure__isnull=False
+        ).order_by('-visit_date')[:5]
+        
+        for visit in previous_visits:
+            if visit.systolic_pressure:
+                return visit.systolic_pressure, f"poprzednia wizyta ({visit.visit_date})"
+        
+        return None, "brak danych"
+
     def _calculate_score2(self, result_data: dict) -> Score2Result:
         """Calculate SCORE2 for non-diabetic patients aged 40-69"""
         age = result_data['age_at_calculation']
@@ -135,6 +170,8 @@ class CalculateScore2View(View):
                 missing.append('cholesterol całkowity')
             if hdl_chol is None:
                 missing.append('cholesterol HDL')
+            
+            logger.warning(f"NO_CALC;{patient.pesel};{age};SCORE2;{', '.join(missing)};")
             
             result_data.update({
                 'score_type': 'SCORE2',
@@ -161,6 +198,8 @@ class CalculateScore2View(View):
             
             risk_level = Score2Result.get_risk_level(age, score_value, 'SCORE2')
             
+            logger.info(f"SUCCESS;{patient.pesel};{age};SCORE2;{score_value}%;{risk_level}")
+            
             result_data.update({
                 'score_type': 'SCORE2',
                 'score_value': score_value,
@@ -172,6 +211,7 @@ class CalculateScore2View(View):
             })
             
         except Exception as e:
+            logger.error(f"ERROR;{patient.pesel};{age};SCORE2;Calculation failed;{str(e)}")
             result_data.update({
                 'score_type': 'SCORE2',
                 'score_value': None,
@@ -188,35 +228,41 @@ class CalculateScore2View(View):
         """Calculate SCORE2-Diabetes for diabetic patients aged 40-69"""
         age = result_data['age_at_calculation']
         sbp = result_data['systolic_pressure']
-        total_chol = result_data['cholesterol_total']
-        hdl_chol = result_data['cholesterol_hdl']
-        smoking_status = result_data['smoking_status']
         patient = result_data['patient']
         visit = result_data['visit']
         
         # Get diabetes-specific data
         age_at_diagnosis = patient.get_diabetes_age_at_diagnosis()
+        
+        # Get cholesterol values (allow max 1 missing)
+        total_chol, hdl_chol, chol_info, chol_source = self._get_cholesterol_values(patient, visit.visit_date)
+        missing_chol_count = (total_chol is None) + (hdl_chol is None)
+        
+        # Get lab values (allow max 1 missing) 
         hba1c, egfr, lab_info, lab_source = self._get_diabetes_lab_values(patient, visit.visit_date)
+        missing_lab_count = (egfr is None) + (hba1c is None)
         
         result_data.update({
             'age_at_diabetes_diagnosis': age_at_diagnosis,
             'hba1c': hba1c,
             'egfr': egfr,
+            'cholesterol_total': total_chol,
+            'cholesterol_hdl': hdl_chol,
         })
         
-        # Check required data (allow max 1 missing from each category)
-        missing_chol = (total_chol is None) + (hdl_chol is None)
-        missing_lab = (egfr is None) + (hba1c is None)
-        
+        # Check required data - same logic as original script
         missing_items = []
         if age_at_diagnosis is None:
             missing_items.append('wiek diagnozy cukrzycy')
-        if missing_chol > 1:
+        if missing_chol_count > 1:  # More than 1 cholesterol value missing
             missing_items.append('wielokrotne wartości cholesterolu')
-        if missing_lab > 1:
+        if missing_lab_count > 1:   # More than 1 lab value missing
             missing_items.append('wielokrotne wartości laboratoryjne (eGFR/HbA1c)')
         
+        # Key difference: Allow 1 missing from EACH category, not total
         if missing_items:
+            logger.warning(f"NO_CALC;{patient.pesel};{age};SCORE2-Diabetes;{', '.join(missing_items)};")
+            
             result_data.update({
                 'score_type': 'SCORE2-Diabetes',
                 'score_value': None,
@@ -224,12 +270,14 @@ class CalculateScore2View(View):
                 'is_calculation_successful': False,
                 'missing_data_reason': f'Brak danych: {", ".join(missing_items)}',
                 'calculation_notes': f'SCORE2-Diabetes: Brakuje {", ".join(missing_items)}',
-                'data_source': 'mixed' if lab_source != 'visit' else 'visit'
+                'data_source': 'mixed' if lab_source != 'visit' or chol_source != 'visit' else 'visit'
             })
             return Score2Result.objects.create(**result_data)
         
         try:
+            smoking_status = result_data['smoking_status']
             smoker = smoking_status == 'smoker'
+            
             score_value = Score2Result.calculate_score2_diabetes(
                 age=age,
                 sbp=sbp,
@@ -246,6 +294,15 @@ class CalculateScore2View(View):
             
             risk_level = Score2Result.get_risk_level(age, score_value, 'SCORE2-Diabetes')
             
+            logger.info(f"SUCCESS;{patient.pesel};{age};SCORE2-Diabetes;{score_value}%;{risk_level}")
+            
+            # Determine data source
+            data_source = 'visit'
+            if lab_source != 'visit' or chol_source != 'visit':
+                data_source = 'mixed'
+            elif lab_source == 'median' or chol_source == 'median':
+                data_source = 'median'
+            
             result_data.update({
                 'score_type': 'SCORE2-Diabetes',
                 'score_value': score_value,
@@ -256,10 +313,11 @@ class CalculateScore2View(View):
                     f'SCORE2-Diabetes: sbp={sbp}, tchol={total_chol:.1f}, hdl={hdl_chol:.1f}, '
                     f'egfr={egfr:.1f}, hba1c={hba1c:.1f}, wiek_dx={age_at_diagnosis}'
                 ),
-                'data_source': 'mixed' if lab_source != 'visit' else 'visit'
+                'data_source': data_source
             })
             
         except Exception as e:
+            logger.error(f"ERROR;{patient.pesel};{age};SCORE2-Diabetes;Calculation failed;{str(e)}")
             result_data.update({
                 'score_type': 'SCORE2-Diabetes',
                 'score_value': None,
@@ -267,7 +325,7 @@ class CalculateScore2View(View):
                 'is_calculation_successful': False,
                 'missing_data_reason': None,
                 'calculation_notes': f'Błąd obliczenia SCORE2-Diabetes: {str(e)}',
-                'data_source': 'mixed' if lab_source != 'visit' else 'visit'
+                'data_source': 'mixed' if lab_source != 'visit' or chol_source != 'visit' else 'visit'
             })
         
         return Score2Result.objects.create(**result_data)
@@ -289,6 +347,8 @@ class CalculateScore2View(View):
                 missing.append('cholesterol całkowity')
             if hdl_chol is None:
                 missing.append('cholesterol HDL')
+            
+            logger.warning(f"NO_CALC;{patient.pesel};{age};SCORE2-OP;{', '.join(missing)};")
             
             result_data.update({
                 'score_type': 'SCORE2-OP',
@@ -316,6 +376,8 @@ class CalculateScore2View(View):
             
             risk_level = Score2Result.get_risk_level(age, score_value, 'SCORE2-OP')
             
+            logger.info(f"SUCCESS;{patient.pesel};{age};SCORE2-OP;{score_value}%;{risk_level}")
+            
             result_data.update({
                 'score_type': 'SCORE2-OP',
                 'score_value': score_value,
@@ -330,6 +392,7 @@ class CalculateScore2View(View):
             })
             
         except Exception as e:
+            logger.error(f"ERROR;{patient.pesel};{age};SCORE2-OP;Calculation failed;{str(e)}")
             result_data.update({
                 'score_type': 'SCORE2-OP',
                 'score_value': None,
@@ -533,6 +596,7 @@ class CalculateAllScore2View(View):
                 'results': results
             })
         except Exception as e:
+            logger.error(f"ERROR;;;CalculateAllScore2View;{str(e)};")
             return JsonResponse({
                 'success': False,
                 'error': str(e)
@@ -556,12 +620,15 @@ class CalculateAllScore2View(View):
         failed_calculations = 0
         excluded_patients = 0
         
+        logger.info(f"BATCH_START;;;Starting batch calculation;{patients.count()} patients;")
+        
         calculator = CalculateScore2View()
         
         with transaction.atomic():
             for patient in patients:
                 latest_visit = patient.get_latest_visit()
                 if not latest_visit:
+                    logger.warning(f"NO_VISIT;{patient.pesel};;;No visits found;")
                     continue
                 
                 try:
@@ -577,9 +644,11 @@ class CalculateAllScore2View(View):
                             excluded_patients += 1
                             
                 except Exception as e:
-                    print(f"Error processing patient {patient.pesel}: {str(e)}")
+                    logger.error(f"ERROR;{patient.pesel};;;Processing error;{str(e)}")
                     failed_calculations += 1
                     continue
+        
+        logger.info(f"BATCH_END;;;Processed: {total_processed};Success: {successful_calculations} Failed: {failed_calculations} Excluded: {excluded_patients};")
         
         return {
             'total_processed': total_processed,
